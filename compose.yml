@@ -1,0 +1,66 @@
+services:
+
+  api:
+    build:
+      context: ./server
+    ports:
+      - 3000:3000
+    environment:
+      NODE_ENV: production
+      DB_HOST: DB
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      NATS_CLIENT_PORT: 4222
+      NATS_MONITORING_PORT: 8222
+    links:
+      - db
+      - nats
+    volumes:
+      - './server:/src'
+    networks:
+      - internal
+      - external
+    depends_on:
+      db:
+        condition: service_healthy
+      nats:
+        condition: service_started
+  
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes: 
+      - db:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  nats:
+    image: nats:latest
+    ports: 
+      - 4223:4222
+      - 8222:8222
+    command: "-m 8222"
+    networks:
+      - internal
+      - external
+
+volumes:
+  db:
+    driver: local
+
+networks:
+  internal:
+    internal: true
+  external: {}
+  

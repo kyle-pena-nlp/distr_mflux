@@ -1,0 +1,3 @@
+CREATE TABLE dummy (
+    id SERIAL PRIMARY KEY
+)
