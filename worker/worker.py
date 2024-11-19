@@ -1,4 +1,4 @@
-import asyncio, uuid, json
+import asyncio, uuid, json, signal
 from argparse import ArgumentParser
 from io import BytesIO
 from typing import Dict
@@ -50,6 +50,8 @@ async def main(cli_args):
         try:
             # Use mflux to generate an image conforming to the request            
             image : Image = generate_image(request)
+
+            print("Image generation complete.")
             
             # Turn it into bytes
             img_io = BytesIO()
@@ -63,6 +65,7 @@ async def main(cli_args):
         except Exception as e:
             # In case of failure, report failure (server also gets this response and can retry if desired)
             print(str(e))
+            print("Image generation failed.")
             await nc.publish(msg.reply, b'There was a problem generating the image.', headers = dict(success = 'false'))
             await nc.flush()
         finally:
@@ -78,16 +81,24 @@ async def main(cli_args):
     print(f"Subscribed to '{imgGenPayloadSub.subject}'")
     await nc.flush()
     
+    # INSERT_YOUR_CODE
+    async def handle_requests():
+        async for msg in requestSub.messages:
+            willing = str(not I_AM_BUSY).lower()
+            print(f"Work request received - willing={willing}")
+            await nc.publish(msg.reply, reply=worker_id, headers=dict(willing=willing))
+            await nc.flush()
 
-    async for msg in requestSub.messages:
-        willing=str(not I_AM_BUSY).lower()
-        print(f"Work request received - willing={willing}")
-        await nc.publish(msg.reply, reply = worker_id, headers = dict(willing = willing))
-        await nc.flush()
+    async def handle_image_generation():
+        async for msg in imgGenPayloadSub.messages:
+            print(f"Image generation request received.")
+            await generate_and_send_image(msg)
 
-    async for msg in imgGenPayloadSub.messages:
-        print(f"Image generation request received.")
-        await generate_and_send_image(msg)
+    # Run both loops concurrently
+    await asyncio.gather(
+        handle_requests(),
+        handle_image_generation()
+    )
 
     input("Press [ENTER] at any time to close the worker.")
     print("Unsubscribing.")
