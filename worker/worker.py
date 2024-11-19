@@ -8,49 +8,66 @@ import nats
 from nats.aio.msg import Msg
 from nats.errors import ConnectionClosedError, NoServersError
 
-QUEUE_GROUP = "workers"
-
 async def main(cli_args):
 
-    id = uuid.uuid4()
+    I_AM_BUSY = False
+
+    # This is how the worker identifies itself to the server
+    worker_id = uuid.uuid4()
     print(f"Worker {id} spun up...")
 
-    # Abe - this will be the port that the NATs server runs on if you spun up the server with `docker compose  up`
+    # Connect to the NATs server
     nc = await nats.connect(cli_args.nats_server_address)
 
+    # This code invokes mflux to satisfy a request for an image
     async def generate_and_send_image(msg : Msg):
+
+        nonlocal I_AM_BUSY
+        I_AM_BUSY = True
 
         print("Generating image.")
 
         # Deserialize message
         request = json.loads(msg.data.decode())
         
-        # Generate an image conforming to the request
-        image = generate_image(request)
+        try:
+            # Use mflux to generate an image conforming to the request
+            image : Image = generate_image(request)
+            
+            # Turn it into bytes
+            img_io = BytesIO()
+            image.save(img_io, 'PNG')
+            img_io.seek(0)
+
+            # Send the image back to the `reply` (which is an inbox that the consumer and server are sub'd to)
+            headers = dict(mimetype='image/png', success='true')
+            await nc.publish(msg.reply, img_io.read(), headers=headers)
+            await nc.flush()
         
-        # Turn it into bytes
-        img_io = BytesIO()
-        image.save(img_io, 'PNG')
-        img_io.seek(0)
+        except Exception as e:
+            # In case of failure, report failure (server also gets this response and can retry if desired)
+            print(str(e))
+            await nc.publish(msg.reply, b'', headers = dict(success = 'false'))
+        
+        finally:
+            await nc.flush()
+            I_AM_BUSY = False
 
-        # Send image as bytes along with a mimetype header directly to the peer who requested it (server listens too in order to do instrumentation / verification requests)
-        headers = dict(mimetype='image/png',success='true')
+    # Respond to requests for one's efforts by identifying yourself, and indicating if you are willing to accept the assignment in the header
+    requestSub = await nc.subscribe('request-worker', 'workers')
+    async for msg in requestSub.messages:
+        await nc.publish(msg.reply, reply = worker_id, header = dict(accepts=str(not I_AM_BUSY).lower()))
 
-        print("Publish image")
-        await nc.publish(msg.reply, img_io.read(), headers=headers)
-        print("Flush")
-        await nc.flush()
-
-    # Respond to requests for image generation in the queue named 'workers'
-    sub = await nc.subscribe('img-gen-to-workers', QUEUE_GROUP)
-    async for msg in sub.messages:
-        print("Got image gen request")
+    # Respond to the actual image generation request by performing it
+    imgGenPayloadSub = await nc.subscribe(worker_id)
+    async for msg in imgGenPayloadSub.messages:
         await generate_and_send_image(msg)
 
     input("Press [Enter] to close worker and exit: ")
 
     # Remove interest in subscription
-    await sub.unsubscribe()
+    await requestSub.unsubscribe()
+    await imgGenPayloadSub.unsubscribe()
 
     # Terminate connection, waiting for all current processing to complete
     await nc.drain()

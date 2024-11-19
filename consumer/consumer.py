@@ -49,7 +49,7 @@ async def main(cli_args):
         # Send off the image generation request for immediate acknowledgment by the server 
         # (The server delegates generation to the workers queue, which then sends the generated image to the inbox)
         try:
-            ack = await nc.request('img-gen', payload_bytes, headers = headers)
+            await nc.publish('img-gen', payload_bytes, headers = headers)
             await nc.flush()
             await asyncio.wait_for(future, timeout=None)
         except Exception as e:

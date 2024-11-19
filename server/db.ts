@@ -1,3 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import { type GenImgRequest } from "./coms";
 
-export const DB = new PrismaClient();
+const DB = new PrismaClient();
+
+export async function recordImgGenRequest(m : GenImgRequest) {
+
+}
