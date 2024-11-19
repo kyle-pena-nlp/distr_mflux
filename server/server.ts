@@ -34,14 +34,13 @@ async function processImgGenRequest(m : Msg) {
     const imageInbox = (m.headers ?? new MsgHdrsImpl()).get('imageInbox');
     
     // register interest in the generated image returned from the worker
-    /*
-    const genImgRequest = deserializeImageGenRequest(m);
+    /*const genImgRequest = deserializeImageGenRequest(m);
     nc.subscribe(imageInbox, {
         callback: workerGeneratedImageCallback
     });*/
     
     // forward the request to the workers queue, but make the `reply` field the original consumer
-    // (that way, the generated image is sent directly to the consumer, avoiding an unnecessary roundtrip)
+    // (that way, when the worker replies, the image gets sent to the consumer)
     nc.publish('img-gen-to-workers', m.data, {
         reply: imageInbox
     })
@@ -59,3 +58,32 @@ const sub = nc.subscribe('img-gen');
     }
     console.log("subscription closed");
 })();
+
+const app = new Hono();
+
+app.get('/status', async (c) => {
+  // applesauce
+  return c.text("Fooey")
+});
+
+app.get('/list', async (c) => {
+    // applesauce
+    return c.text("fooey");
+});
+
+app.get('/details', async (c) => {
+    // applesauce
+    return c.text("fooey");
+});
+
+app.post('/updateWorker', async (c) => {
+    // applesauce
+    return c.text("fooey");
+});
+
+console.log(`Starting server on port ${env.PORT}`);
+
+export default {
+  port: env.PORT,
+  fetch: app.fetch
+};
