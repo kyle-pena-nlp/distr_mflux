@@ -6,15 +6,15 @@ services:
     ports:
       - 3000:3000
     environment:
-      NODE_ENV: production
+      PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@db:5432/mydb?schema=public
+      NODE_ENV: production
       NATS_SERVER_URL: http://nats:4222
       NATS_MONITORING_URL: http://nats:8222
+    tty: true
     links:
       - db
       - nats
-    volumes:
-      - './server:/src'
     networks:
       - internal
       - external

@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mflux"
+name = "distr_mflux"
 version = "0.4.1"
-description = "A MLX port of FLUX based on the Huggingface Diffusers implementation."
+description = "A wrapper around mflux"
 readme = "README.md"
 keywords = ["diffusers", "flux", "mlx"]
 authors = [{ name = "Filip Strand", email = "strand.filip@gmail.com" }]

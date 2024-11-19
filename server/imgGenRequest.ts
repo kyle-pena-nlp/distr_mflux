@@ -1,7 +1,5 @@
-import { DirectMsgHeaders, headers, MsgHdrsImpl, NatsError, StringCodec, type Msg } from "nats";
+import { MsgHdrsImpl, NatsError, StringCodec, type Msg } from "nats";
 import { type GenImgRequest } from "./coms";
-import { isTrustworthyWorker, recordImgGenRequest as makeImgGenRequestRecord } from "./db";
-import { nc } from "./nats";
 
 export function deserializeImageGenRequest(m : Msg) : GenImgRequest {
     const sc = StringCodec();

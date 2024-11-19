@@ -23,12 +23,14 @@ async def main(cli_args):
         # This handles the response from the worker
         async def receive_generated_image(msg : Msg):
             nonlocal future
-            print("Prompt response message received: " + msg.subject)
-            await subs[msg.subject].unsubscribe()
-            del subs[msg.subject]
-            bytes_io = BytesIO(msg.data)
-            img = Image.open(bytes_io)
-            img.save('./image.png')
+            success = msg.headers['success']
+            if success == 'true':
+                bytes_io = BytesIO(msg.data)
+                img = Image.open(bytes_io)
+                img.save('./image.png')
+            else:
+                reason = msg.data.decode()
+                print(f"Image generation failed - {reason}" )
             future.set_result(True)
         
         # Ask the user for the prompt, early-out if no response
@@ -38,7 +40,7 @@ async def main(cli_args):
 
         # Construct a one-shot inbox that receives the generated image (handled by `receive_generated_image`)
         image_inbox = nc.new_inbox()
-        subs[image_inbox] = await nc.subscribe(image_inbox, cb = receive_generated_image)
+        await nc.subscribe(image_inbox, cb = receive_generated_image, max_msgs=1)
 
         # Prepare the image generation request
         image_gen_opts = dict(prompt = prompt, seed = 42, numSteps = 4, height = 128, width = 128)

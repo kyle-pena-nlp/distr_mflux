@@ -45,7 +45,13 @@ app.post('/updateWorker', async (c) => {
 
 console.log(`Starting server on port ${env.PORT}`);
 
+
 export default {
   port: env.PORT,
   fetch: app.fetch
 };
+
+/*Bun.serve({
+    fetch: app.fetch,
+    port: env.PORT
+});*/

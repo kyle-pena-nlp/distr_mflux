@@ -1,31 +1,37 @@
 import { PrismaClient, Prisma } from "@prisma/client";
-import { type GenImgRequest } from "./coms";
-import { deserializeImageGenRequest, getImageInbox } from "./imgGenRequest";
+import { getImageInbox } from "./imgGenRequest";
 import type { Msg } from "nats";
 
 const DB = new PrismaClient();
 
-export async function recordImgGenRequest(m : Msg) {
+export async function recordImgGenRequest(m : Msg) : Promise<number> {
     const imageInbox = getImageInbox(m);
-    const rec = deserializeImageGenRequest(m);
-    await DB.imgGenRequest.create({
+    const dbRec = await DB.imgGenRequest.create({
         data: {
             imageInbox
         }
     });
+    return dbRec.id;
 }
 
-export async function updateImgGenRequestRecord(imageInbox : string, props : Prisma.ImgGenRequestUpdateInput) {
+export async function updateImgGenRequestRecord(dbID : number, props : Prisma.ImgGenRequestUpdateInput) {
     await DB.imgGenRequest.update({
         where: {
-            imageInbox
+            id: dbID
         },
         data: props
     });
 }
 
 
-export async function isTrustworthyWorker(worker_id : string) : Promise<boolean> {
-    // stubbed - will reference a blacklist in the future
-    return true;
+export async function isTrustworthyWorker(workerID : string) : Promise<boolean> {
+    const record = await DB.blacklistedWorker.findFirst({
+        where: {
+            workerID: workerID
+        },
+        select: {
+            workerID: true
+        }
+    });
+    return record != null;
 }

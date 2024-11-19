@@ -13,7 +13,7 @@ async def main(cli_args):
     I_AM_BUSY = False
 
     # This is how the worker identifies itself to the server
-    worker_id = uuid.uuid4()
+    worker_id = cli_args.worker_id or uuid.uuid4()
     print(f"Worker {id} spun up...")
 
     # Connect to the NATs server
@@ -102,5 +102,6 @@ def generate_image(request : Dict[str,any]) -> Image:
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--nats_server_address", type = str, default = "nats://localhost:4223")
+    parser.add_argument("--worker_id", type = str, default = None)
     cli_args = parser.parse_args()
     asyncio.run(main(cli_args))

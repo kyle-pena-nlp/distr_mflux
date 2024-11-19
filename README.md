@@ -5,52 +5,42 @@ This repository implements
 ## Overview
 
 There are three components to this project:
-1. **server** - a docker-compose which hosts a NATs server, a bun process, and a postgres DB.
+1. **server** - a docker-compose stack which has a NATs server, a bun process, and a postgres DB.
 2. **worker** - a copy of `mflux` wrapped with a NATs client. Multiple instances can be spun up to simulate a pool of workers.
-3. **consumer** - a simple python script which asks for prompts and receives the generated image as a bytes payload from the worker.
+3. **requester** - a simple python script which asks for image prompts from the user (you)
 
-## Server Setup
+Based on our conversation, you are probably going to be most interested in:
+`server/imgGenRequestHandler.ts`
+
+## Design
+
+<include design pic here>
+
+## Some Thoughts (What I Would Do Differently The 2nd Time)
+1. If I really wanted this thing to scale, I should have included a write-behind cache (like Redis) between the bun process and postgres
+2. I should have spent some more time looking into JetStream - might have simplified the implementation a bit
+
+## Starting The Server
 
 As a prerequisite, you'll need to have Docker installed and the Docker daemon running.
-The server and its dependent services are orchestrated with docker compose.
-To start the server:
+To build and start the server:
 * Open a new terminal
 * Be in the root directory of the repo
 * Run `docker compose up`
 
-## Consumer Setup
-* Open a new terminal
-* Be in the root directory of the repo. 
-* The server must be running or the consumer can't connect to NATs
-* Have Python 3.11+ installed. 
+##  Requester/Worker Setup
 
-Using Python 3.11+:
+Using Python 3.11+ (may work in earlier versions, haven't tested them):
 1. In the root directory of the repo, create a virtual environment: `python -m venv .venv`
 2. Activate the virtual environment: `source .venv/bin/activate`
 3. Install the project requirements: `pip install .`
-To start the consumer, run: `python consumer/consumer.py`
+4. Download the HuggingFace models for mflux: `python worker/download_hf_model.py`
 
-## Worker Setup
-* Open a new terminal
-* Be in the root directory of the repo. 
-* The server must be running or the worker can't connect to NATs
-* Have Python 3.11+ installed.  
-
-Using Python 3.11+:
-1. In the root directory of the repo, create a virtual environment: `python -m venv .venv`
-2. Activate the virtual environment: `source .venv/bin/activate`
-3. Install the project requirements: `pip install .`
-To start the consumer, run: `python worker/worker.py`
-Rinse and repeat in new terminal windows to simulate a pool of workers.
-
-## Summary
-
-So, in summary:
-1. Start the server in a terminal
-2. Start one or more workers in more terminals
-3. Start a consumer in a final terminal
-
-
+## Starting Workers and Requester
+1. In all terminal windows, always have the virtual environment activated: `source .venv/bin/activate`
+2. Start a requester: `python requester/requester.py`
+3. Start one or more workers in separate terminal windows: `python worker/worker.py`
+Create multiple workers to create a pool of workers that get randomly assigned work from the server.
 
 
 

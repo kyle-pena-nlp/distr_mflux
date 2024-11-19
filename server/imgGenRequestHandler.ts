@@ -7,30 +7,29 @@ const MAX_ACQUIRE_VOLUNTEER_ATTEMPTS = 10;
 
 export async function handleImgGenRequest(m : Msg) {
     
-    // Get the inbox that the worker will send the image to
+    // Get the inbox that the worker will eventually send the image to
     const imageInbox = getImageInbox(m);  
 
-    // Deserialize the image generation request payload and record it for posterity
-    await insertImgGenRequestRecord(m);  
+    // Record the incoming image generation request payload
+    const dbID = await insertImgGenRequestRecord(m);  
 
     // Try to acquire a worker from the pool
     let willingWorker : Msg|null = await getAWillingWorker();
-
     
+    // If we failed to acquire a willing worker, notify the consumer and early-out
     if (willingWorker == null) {
-        // If we failed to acquire a willing worker, notify the consumer and early-out
         await sendFailedImgGenToImageInbox(imageInbox);
-        await updateImgGenRequestRecord(imageInbox, { successful: false });
+        await updateImgGenRequestRecord(dbID, { successful: false });
         return;
     }
+    // Otherwise, update 
     else {
-        // Otherwise, update 
-        await updateImgGenRequestRecord(imageInbox, { workerId: willingWorker.reply!! })
+        await updateImgGenRequestRecord(dbID, { workerId: willingWorker.reply!! })
     }
 
     // If we could find a worker, as the server we will *also* listen for image generation completion
     nc.subscribe(imageInbox, {
-        callback: postImageGenerationCallback
+        callback: async (err,msg) => postImageGenerationCallback(dbID,err,msg)
     });    
     
     // Fire off the image generation request to the selected worker, with the reply pointing to the imageInbox
@@ -66,10 +65,7 @@ async function getAWillingWorker() : Promise<Msg|null> {
 }
 
 
-async function postImageGenerationCallback(err : NatsError | null, msg : Msg) {
-    const imageInbox = msg.subject;
+async function postImageGenerationCallback(dbID : number, err : NatsError | null, msg : Msg) {
     const successful = wasImageGenerationSuccessful(err,msg);
-    if (successful) {
-        await updateImgGenRequestRecord(imageInbox, { successful: true, end: new Date(Date.now()) });
-    }
+    await updateImgGenRequestRecord(dbID, { successful, end: new Date(Date.now()) });
 }
