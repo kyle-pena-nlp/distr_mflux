@@ -34,7 +34,7 @@ async def main(cli_args):
             future.set_result(True)
         
         # Ask the user for the prompt, early-out if no response
-        prompt = input("Enter prompt (empty to quit): ").strip()
+        prompt = input("Enter prompt (Empty prompt will exit program): ").strip()
         if (prompt == ''):
             break
 
