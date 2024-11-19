@@ -1,0 +1,3 @@
+# direct habitual `pip install -r requirements.txt`
+# users to `pyproject.toml` defined req list
+-e .
