@@ -71,7 +71,6 @@ async def main(cli_args):
 
     # Respond to a request from the server for a worker, indicating whether you are willing to work
     requestSub = await nc.subscribe('request-worker', 'workers')
-    print(nc.stats)
     print(f"Subscribed to '{requestSub.subject}'")
 
     # Respond to an image generation request
@@ -79,32 +78,21 @@ async def main(cli_args):
     print(f"Subscribed to '{imgGenPayloadSub.subject}'")
     await nc.flush()
     
-    async def respond_to_worker_request_loop():
-        print("Listening for worker pool requests...")
-        async for msg in requestSub.messages:
-            willing=str(not I_AM_BUSY).lower()
-            print(f"Work request received - willing={willing}")
-            await nc.publish(msg.reply, reply = worker_id, header = dict(willing = willing))
-            await nc.flush()
 
-    async def perform_image_generation_work_loop():
-        print("Listening for img gen requests...")
-        async for msg in imgGenPayloadSub.messages:
-            print(f"Image generation request received.")
-            await generate_and_send_image(msg)
+    async for msg in requestSub.messages:
+        willing=str(not I_AM_BUSY).lower()
+        print(f"Work request received - willing={willing}")
+        await nc.publish(msg.reply, reply = worker_id, headers = dict(willing = willing))
+        await nc.flush()
 
-    async def unsubscribe():
-        input("Press [ENTER] at any time to close the worker.")
-        print("Unsubscribing.")
-        await requestSub.unsubscribe()
-        await imgGenPayloadSub.unsubscribe()
+    async for msg in imgGenPayloadSub.messages:
+        print(f"Image generation request received.")
+        await generate_and_send_image(msg)
 
-    task1 = asyncio.create_task(respond_to_worker_request_loop())
-    task2 = asyncio.create_task(perform_image_generation_work_loop())
-    task3 = asyncio.create_task(unsubscribe())
-
-    print(f"Worker {worker_id} async loops started.")
-    await asyncio.gather(task1, task2, task3)
+    input("Press [ENTER] at any time to close the worker.")
+    print("Unsubscribing.")
+    await requestSub.unsubscribe()
+    await imgGenPayloadSub.unsubscribe()
 
     # Terminate connection, waiting for all current processing to complete
     try:
