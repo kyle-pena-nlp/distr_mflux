@@ -13,6 +13,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model DummyTable {
-  id Int @id
+model ImgGenRequest {
+  id Int @id @default(autoincrement())
+  imageInbox String @unique
+  workerId String?
+  start DateTime?
+  end DateTime?
+  successful Boolean?
+  passesVerification  Boolean?
+  created DateTime @default(now())
+  updated DateTime @updatedAt @default(now())
+}
+
+model BlacklistedWorker {
+  id Int @id @default(autoincrement())
+  workerID String 
 }
