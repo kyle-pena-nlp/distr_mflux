@@ -13,11 +13,14 @@ async def main(cli_args):
     I_AM_BUSY = False
 
     # This is how the worker identifies itself to the server
-    worker_id = cli_args.worker_id or uuid.uuid4()
-    print(f"Worker {id} spun up...")
+    worker_id = cli_args.worker_id or str(uuid.uuid4())
+
+    print(f"Worker {worker_id} is starting")
 
     # Connect to the NATs server
     nc = await nats.connect(cli_args.nats_server_address)
+
+    print(f"Worker {worker_id} is connected to NATs")
 
     # This code invokes mflux to satisfy a request for an image
     async def generate_and_send_image(msg : Msg):
@@ -55,19 +58,25 @@ async def main(cli_args):
 
     # Respond to requests for one's efforts by identifying yourself, and indicating if you are willing to accept the assignment in the header
     requestSub = await nc.subscribe('request-worker', 'workers')
-    async for msg in requestSub.messages:
-        await nc.publish(msg.reply, reply = worker_id, header = dict(accepts=str(not I_AM_BUSY).lower()))
+    imgGenPayloadSub = await nc.subscribe(worker_id)    
+    
+    async def respond_to_worker_request_loop():
+        async for msg in requestSub.messages:
+            await nc.publish(msg.reply, reply = worker_id, header = dict(willing=str(not I_AM_BUSY).lower()))
 
-    # Respond to the actual image generation request by performing it
-    imgGenPayloadSub = await nc.subscribe(worker_id)
-    async for msg in imgGenPayloadSub.messages:
-        await generate_and_send_image(msg)
+    async def perform_image_generation_work_loop():
+        async for msg in imgGenPayloadSub.messages:
+            await generate_and_send_image(msg)
 
-    input("Press [Enter] to close worker and exit: ")
+    async def unsubscribe():
+        input("Press [Enter] to close worker and exit: ")
+        await requestSub.unsubscribe()
+        await imgGenPayloadSub.unsubscribe()
 
-    # Remove interest in subscription
-    await requestSub.unsubscribe()
-    await imgGenPayloadSub.unsubscribe()
+    task1 = asyncio.create_task(respond_to_worker_request_loop())
+    task2 = asyncio.create_task(perform_image_generation_work_loop())
+    task3 = asyncio.create_task(unsubscribe())
+    await asyncio.gather(task1, task2, task3)
 
     # Terminate connection, waiting for all current processing to complete
     await nc.drain()

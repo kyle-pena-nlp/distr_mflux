@@ -16,6 +16,11 @@ datasource db {
 model ImgGenRequest {
   id Int @id @default(autoincrement())
   imageInbox String @unique
+  prompt String
+  seed Int
+  numSteps Int
+  height Int
+  width Int
   workerId String?
   start DateTime?
   end DateTime?

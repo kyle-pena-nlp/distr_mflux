@@ -3,6 +3,5 @@ export type GenImgRequest = {
     seed : number
     numSteps : number 
     height : number 
-    width : number 
-    imageInbox : string
+    width : number
 };

@@ -1,33 +1,34 @@
 import { headers, NatsError, type Msg } from "nats";
-import { isTrustworthyWorker, recordImgGenRequest as insertImgGenRequestRecord, updateImgGenRequestRecord } from "./db";
+import { isTrustworthyWorker, recordImgGenRequest as recordImgGenRequest, updateImgGenRequestRecord } from "./db";
 import { nc } from "./nats";
-import { getImageInbox, wasImageGenerationSuccessful } from "./imgGenRequest";
+import { getImageInbox as getImageInboxFromMsgHeader, wasImageGenerationSuccessful } from "./imgGenRequest";
 
 const MAX_ACQUIRE_VOLUNTEER_ATTEMPTS = 10;
 
 export async function handleImgGenRequest(m : Msg) {
     
-    // Get the inbox that the worker will eventually send the image to
-    const imageInbox = getImageInbox(m);  
+    // This is where the worker will eventually send the image to
+    const imageInbox = getImageInboxFromMsgHeader(m);  
 
     // Record the incoming image generation request payload
-    const dbID = await insertImgGenRequestRecord(m);  
+    const dbID = await recordImgGenRequest(m);
 
     // Try to acquire a worker from the pool
     let willingWorker : Msg|null = await getAWillingWorker();
     
     // If we failed to acquire a willing worker, notify the consumer and early-out
     if (willingWorker == null) {
-        await sendFailedImgGenToImageInbox(imageInbox);
+        await sendFailedImgGen(imageInbox, "There are no workers available");
         await updateImgGenRequestRecord(dbID, { successful: false });
         return;
     }
-    // Otherwise, update 
-    else {
-        await updateImgGenRequestRecord(dbID, { workerId: willingWorker.reply!! })
-    }
 
-    // If we could find a worker, as the server we will *also* listen for image generation completion
+    // Otherwise, update - indicating a worker has been accepted
+    const workerId = willingWorker.reply!!;
+    await updateImgGenRequestRecord(dbID, { workerId })
+    
+
+    // As the server we will subscribe to the completed image being sent to the imageInbox
     nc.subscribe(imageInbox, {
         callback: async (err,msg) => postImageGenerationCallback(dbID,err,msg)
     });    
@@ -38,24 +39,25 @@ export async function handleImgGenRequest(m : Msg) {
     });
 }
 
-async function sendFailedImgGenToImageInbox(imageInbox : string) { 
+async function sendFailedImgGen(imageInbox : string, errorMessage: string) { 
     const h = headers();
     h.append('success', 'false');
-    await nc.publish(imageInbox, "Could not find worker in network", {
+    nc.publish(imageInbox, errorMessage, {
         headers: h
     });
     return;
 }
 
 async function getAWillingWorker() : Promise<Msg|null> {
-    // Keep asking for a worker until you get one that accepts the work and one that's "trustworthy"
+    // Keep asking for a worker until you get one that is willing to accept the work and one that's not blacklisted
     let worker : Msg|null = null, attempts = 0;
     while (worker == null && attempts < MAX_ACQUIRE_VOLUNTEER_ATTEMPTS) {
-        worker = await nc.request('request-worker', "", {
-            timeout: 1.0
+        worker = await nc.request('request-worker', "", { timeout: 500 }).catch(r => {
+            console.warn(r);
+            return null;
         });
-        const workerAcceptsWork = (worker.headers?.get('accepts') !== 'true');
-        const canUseWorker = workerAcceptsWork || !(await isTrustworthyWorker(worker.reply!!));
+        const workerAcceptsWork = worker?.headers?.get('willing') === 'true';
+        const canUseWorker = workerAcceptsWork || ((worker != null) && !(await isTrustworthyWorker(worker.reply!!)));
         if (!canUseWorker) {
             worker = null;
         }

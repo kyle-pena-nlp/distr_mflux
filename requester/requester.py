@@ -13,14 +13,12 @@ from typing import Dict
 async def main(cli_args):
 
     nc = await nats.connect(cli_args.nats_server_address)
-    subs : Dict[str,Subscription] = dict()
 
     # Until the user doesn't want to anymore
     while True:
 
-        future = asyncio.Future()
-
         # This handles the response from the worker
+        future = asyncio.Future()
         async def receive_generated_image(msg : Msg):
             nonlocal future
             success = msg.headers['success']
@@ -28,6 +26,7 @@ async def main(cli_args):
                 bytes_io = BytesIO(msg.data)
                 img = Image.open(bytes_io)
                 img.save('./image.png')
+                print("Request completed.")
             else:
                 reason = msg.data.decode()
                 print(f"Image generation failed - {reason}" )
@@ -48,8 +47,7 @@ async def main(cli_args):
         payload_bytes = payload_string.encode()
         headers = dict(imageInbox = image_inbox)
 
-        # Send off the image generation request for immediate acknowledgment by the server 
-        # (The server delegates generation to the workers queue, which then sends the generated image to the inbox)
+        # Send off the image generation request for immediate acknowledgment by the server
         try:
             await nc.publish('img-gen', payload_bytes, headers = headers)
             await nc.flush()
