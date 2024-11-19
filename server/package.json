@@ -5,7 +5,10 @@
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --env-file=.dev.env --watch index.ts",
-    "test": "bun --watch test"
+    "test": "bun --watch test",
+    "prisma:generate": "dotenv -e .env.development -- bun prisma generate",
+    "prisma:push": "dotenv -e .env.development -- bun prisma db push --force-reset",
+    "prisma:migrate": "dotenv -e .env.development -- bun prisma migrate deploy"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -14,8 +17,11 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@prisma/client": "5.22.0",
+    "dotenv-cli": "^7.4.2",
     "hono": "^4.6.10",
     "nats": "^2.28.2",
+    "prisma": "^5.22.0",
     "zod": "^3.23.8"
   }
 }

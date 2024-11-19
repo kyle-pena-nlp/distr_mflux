@@ -32,6 +32,12 @@ FROM base AS release
 COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease *.ts ./
 
+# Reset DB (starting from scratch every time we spin up the server, for simplicity's sake)
+RUN bun run prisma:push
+
+# Regenerate client types
+RUN bun run prisma:generate
+
 # run the app
 USER bun
 EXPOSE 3000/tcp

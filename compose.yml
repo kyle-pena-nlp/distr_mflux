@@ -7,13 +7,9 @@ services:
       - 3000:3000
     environment:
       NODE_ENV: production
-      DB_HOST: DB
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: postgres
-      NATS_CLIENT_PORT: 4222
-      NATS_MONITORING_PORT: 8222
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mydb?schema=public
+      NATS_SERVER_URL: http://nats:4222
+      NATS_MONITORING_URL: http://nats:8222
     links:
       - db
       - nats
