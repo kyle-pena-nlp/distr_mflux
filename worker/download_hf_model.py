@@ -10,6 +10,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     model_config = ModelConfig.from_alias(args.model_alias)
 
+    print("This script runs for some time (~40 mins for me)...")
+
     snapshot_download(
         repo_id=model_config.model_name,
         allow_patterns=[
