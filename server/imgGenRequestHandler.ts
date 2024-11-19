@@ -7,15 +7,15 @@ const MAX_ACQUIRE_WORKER_ATTEMPTS = 10;
 
 export async function handleImgGenRequest(m : Msg) {
     
-    // This is where the worker will eventually send the image to
+    // This is where the worker will eventually send the image to - read it off the header
     const imageInbox = getImageInboxFromMsgHeader(m);  
 
-    // Record the incoming image generation request payload
+    // Persist the incoming image generation request
     const dbID = await recordImgGenRequest(m);
 
-    // Try to acquire a worker from the pool
+    // Try to acquire a worker from the pool - but the worker has to be willing
     console.info(`Acquiring a willing worker from the pool`);
-    let willingWorker : Msg|null = await getAWillingWorker();
+    const willingWorker : Msg|null = await getAWillingWorker();
     
     // If we failed to acquire a willing worker, notify the consumer and early-out
     if (willingWorker == null) {
@@ -25,13 +25,12 @@ export async function handleImgGenRequest(m : Msg) {
         return;
     }
 
-    // Otherwise, update - indicating a worker has been accepted
+    // Otherwise, update - indicating a worker has been selected
     const workerId = willingWorker.reply!!;
     console.info(`Worker ${workerId} selected for imageInbox ${imageInbox}`);
     await updateImgGenRequestRecord(dbID, { workerId });
-    
 
-    // As the server we will subscribe to the completed image being sent to the imageInbox
+    // As the server we will subscribe to the completed image
     console.info(`Subscribing to imageInbox ${imageInbox}`);
     nc.subscribe(imageInbox, {
         callback: async (err,msg) => postImageGenerationCallback(dbID,err,msg)
@@ -42,6 +41,9 @@ export async function handleImgGenRequest(m : Msg) {
     nc.publish(workerId, m.data, {
         reply: imageInbox
     });
+
+    // When the worker completes the image, it will send it to the reply (imageInbox), 
+    // and therefore the requester will get the image.
 }
 
 async function sendFailedImgGen(imageInbox : string, errorMessage: string) { 

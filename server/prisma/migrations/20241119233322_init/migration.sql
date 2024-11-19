@@ -2,6 +2,11 @@
 CREATE TABLE "ImgGenRequest" (
     "id" SERIAL NOT NULL,
     "imageInbox" TEXT NOT NULL,
+    "prompt" TEXT NOT NULL,
+    "seed" INTEGER NOT NULL,
+    "numSteps" INTEGER NOT NULL,
+    "height" INTEGER NOT NULL,
+    "width" INTEGER NOT NULL,
     "workerId" TEXT,
     "start" TIMESTAMP(3),
     "end" TIMESTAMP(3),

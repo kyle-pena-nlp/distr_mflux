@@ -3,55 +3,30 @@ import { env } from "./env";
 import { nc } from './nats';
 import { handleImgGenRequest } from './imgGenRequestHandler';
 
-
 // Subscribe to img-gen pubs from consumers
 const sub = nc.subscribe('img-gen');
 
-// For each img-gen request received (as long as the server is alive), handle the message
+// For each img-gen request received...
 (async () => {
     for await (const m of sub) {
-        // deliberate lack of await in order to avoid blocking on received request
+        // Handle the request...
+        // (deliberate lack of await in order to avoid blocking on received request)
         handleImgGenRequest(m)
     }
     console.log("subscription closed");
 })();
 
-// Make a Hono API
+// Make a Hono API for a dashboard
 const app = new Hono();
 
 // Status of client
-app.get('/status', async (c) => {
+app.get('/dashboard', async (c) => {
   // applesauce
   return c.text("Fooey")
 });
 
-// List of currently connected workers
-app.get('/list', async (c) => {
-    // applesauce
-    return c.text("fooey");
-});
-
-// Details on a worker
-app.get('/details', async (c) => {
-    // applesauce
-    return c.text("fooey");
-});
-
-// Change a worker
-app.post('/updateWorker', async (c) => {
-    // applesauce
-    return c.text("fooey");
-});
-
-console.log(`Starting server on port ${env.PORT}`);
-
-
+console.log(`Starting Hono server on port ${env.PORT} (visit http://localhost:${env.PORT}/dashboard)`);
 export default {
   port: env.PORT,
   fetch: app.fetch
 };
-
-/*Bun.serve({
-    fetch: app.fetch,
-    port: env.PORT
-});*/

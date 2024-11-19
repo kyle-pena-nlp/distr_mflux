@@ -35,5 +35,5 @@ export async function isTrustworthyWorker(workerID : string) : Promise<boolean> 
             workerID: true
         }
     });
-    return record != null;
+    return record == null;
 }
