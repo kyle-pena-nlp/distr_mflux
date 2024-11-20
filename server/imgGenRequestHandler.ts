@@ -40,7 +40,7 @@ export async function handleImgGenRequest(m : Msg) {
     console.info(`Subscribing to imageInbox ${imageInbox}`);
     nc.subscribe(imageInbox, {
         callback: async (err,msg) => postImageGenerationCallback(dbID,err,msg)
-    });    
+    });
     
     // Fire off the image generation request to the selected worker, with the reply pointing to the imageInbox
     console.info(`Publishing image gen request to ${workerId}`);
@@ -96,7 +96,8 @@ function isWilling(x : Msg) : boolean {
 }
 
 async function isTrustworthy(x : Msg) : Promise<boolean> {
-    return await isTrustworthyWorker(x.subject);
+    const workerId = x.headers?.get("workerId")!!;
+    return await isTrustworthyWorker(workerId);
 }
 
 async function postImageGenerationCallback(dbID : number, err : NatsError | null, msg : Msg) {

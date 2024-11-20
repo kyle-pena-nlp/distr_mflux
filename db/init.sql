@@ -28,3 +28,6 @@ CREATE TABLE "BlacklistedWorker" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ImgGenRequest_imageInbox_key" ON "ImgGenRequest"("imageInbox");
+
+
+INSERT INTO "BlacklistedWorker" ("id","workerID") VALUES (1,'blacklisted-worker');

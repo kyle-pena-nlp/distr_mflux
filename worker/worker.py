@@ -96,7 +96,7 @@ async def main(cli_args):
         async for msg in requestSub.messages:
             willing = str(not I_AM_BUSY).lower()
             print("Accepted work request from server" if willing == 'true' else "Refused work request from server")
-            await nc.publish(msg.reply, reply=worker_id, headers=dict(willing=willing))
+            await nc.publish(msg.reply, reply=worker_id, headers=dict(willing=willing, workerId=worker_id))
             await nc.flush()
 
     # Async loop to receive the specific parameters of the work request.

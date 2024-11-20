@@ -26,6 +26,7 @@ export async function updateImgGenRequestRecord(dbID : number, props : Prisma.Im
 
 
 export async function isTrustworthyWorker(workerID : string) : Promise<boolean> {
+    console.log(`Checking if worker ${workerID} is trustworthy`);
     const record = await DB.blacklistedWorker.findFirst({
         where: {
             workerID: workerID

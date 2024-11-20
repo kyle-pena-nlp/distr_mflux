@@ -177,3 +177,5 @@ dist
 
 # Docker temp directory to cache stuff from building of image
 /temp
+
+!doc/*

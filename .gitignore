@@ -23,3 +23,5 @@ notes.txt
 .mflux
 .venv
 .python-version
+
+generated/*
