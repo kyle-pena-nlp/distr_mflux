@@ -26,6 +26,7 @@ def main():
 
     try:
         # Generate an image
+        """
         image = flux.generate_image(
             seed=int(time.time()) if args.seed is None else args.seed,
             prompt=args.prompt,
@@ -42,6 +43,7 @@ def main():
 
         # Save the image
         image.save(path=args.output, export_json_metadata=args.metadata)
+        """
     except StopImageGenerationException as stop_exc:
         print(stop_exc)
 

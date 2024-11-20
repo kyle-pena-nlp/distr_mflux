@@ -1,3 +1,5 @@
+import asyncio
+
 from pathlib import Path
 
 import mlx.core as mx
@@ -75,12 +77,13 @@ class Flux1:
         if weights.quantization_level is not None:
             self._set_model_weights(weights)
 
-    def generate_image(
+    async def generate_image(
         self,
         seed: int,
         prompt: str,
         config: Config = Config(),
         stepwise_output_dir: Path = None,
+        progress_cb = None,
     ) -> GeneratedImage:
         # Create a new runtime config based on the model type and input parameters
         config = RuntimeConfig(config, self.model_config)
@@ -123,6 +126,8 @@ class Flux1:
 
                 # Evaluate to enable progress tracking
                 mx.eval(latents)
+
+                await progress_cb(100 * (gen_step)/config.num_inference_steps)
 
             except KeyboardInterrupt:  # noqa: PERF203
                 stepwise_handler.handle_interruption()

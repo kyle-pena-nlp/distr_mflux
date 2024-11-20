@@ -1,12 +1,11 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { deserializeImageGenRequest, getImageInbox } from "./imgGenRequest";
 import type { Msg } from "nats";
+import type { GenImgRequest } from "./coms";
 
 const DB = new PrismaClient();
 
-export async function recordImgGenRequest(m : Msg) : Promise<number> {
-    const imageInbox = getImageInbox(m);
-    const imgGenRequest = deserializeImageGenRequest(m);
+export async function recordImgGenRequest(imageInbox : string, imgGenRequest : GenImgRequest) : Promise<number> {
     const dbRec = await DB.imgGenRequest.create({
         data: {
             imageInbox,

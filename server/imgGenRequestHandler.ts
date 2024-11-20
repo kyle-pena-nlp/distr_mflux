@@ -1,19 +1,24 @@
 import { headers, NatsError, type Msg } from "nats";
 import { isTrustworthyWorker, recordImgGenRequest as recordImgGenRequest, updateImgGenRequestRecord } from "./db";
 import { nc } from "./nats";
-import { getImageInbox as getImageInboxFromMsgHeader, wasImageGenerationSuccessful } from "./imgGenRequest";
+import { deserializeImageGenRequest, getImageInbox as getImageInboxFromMsgHeader, serializeImageGenRequest, wasImageGenerationSuccessful } from "./imgGenRequest";
 
 const MAX_ACQUIRE_WORKER_ATTEMPTS = 10;
 
 export async function handleImgGenRequest(m : Msg) {
     
-    // This is where the worker will eventually send the image to - read it off the header
+    // This is where the worker will eventually send the image to - the requester is sub'd to this imageInbox
+    const requester_id = m.reply;
     const imageInbox = getImageInboxFromMsgHeader(m);  
 
-    // Persist the incoming image generation request
-    const dbID = await recordImgGenRequest(m);
+    // Deserialize the image generation request and pick a random seed (server chooses the seed to avoid sybils during verification)
+    const seed = Math.floor(Math.random() * (Math.pow(2,16)-1));
+    const imgGenRequest = { ...deserializeImageGenRequest(m), seed };
 
-    // Try to acquire a worker from the pool - but the worker has to be willing
+    // Persist the image generation request
+    const dbID = await recordImgGenRequest(imageInbox, imgGenRequest);
+
+    // Acquire a non-busy ("willing") worker from the pool
     console.info(`Acquiring a willing worker from the pool`);
     const willingWorker : Msg|null = await getAWillingWorker();
     
@@ -29,8 +34,9 @@ export async function handleImgGenRequest(m : Msg) {
     const workerId = willingWorker.reply!!;
     console.info(`Worker ${workerId} selected for imageInbox ${imageInbox}`);
     await updateImgGenRequestRecord(dbID, { workerId });
+    await nc.publish(`${imageInbox}.worker-assigned`, workerId)
 
-    // As the server we will subscribe to the completed image
+    // As the server we will subscribe to the image generation being completed so we can update records (see callback implementation)
     console.info(`Subscribing to imageInbox ${imageInbox}`);
     nc.subscribe(imageInbox, {
         callback: async (err,msg) => postImageGenerationCallback(dbID,err,msg)
@@ -38,7 +44,7 @@ export async function handleImgGenRequest(m : Msg) {
     
     // Fire off the image generation request to the selected worker, with the reply pointing to the imageInbox
     console.info(`Publishing image gen request to ${workerId}`);
-    nc.publish(workerId, m.data, {
+    nc.publish(workerId, serializeImageGenRequest(imgGenRequest), {
         reply: imageInbox
     });
 

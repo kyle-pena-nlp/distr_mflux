@@ -11,15 +11,17 @@ from contextlib import redirect_stdout
 
 async def main(cli_args):
 
-    # Mark worker as busy when it is performing work so that it refuses new work if asked
-    I_AM_BUSY = False
-
     # This is how the worker identifies itself to the server
     worker_id = cli_args.worker_id or str(uuid.uuid4())
 
+    # Mark worker as busy when it is performing work so that it refuses new work if asked while busy
+    I_AM_BUSY = False
+
+    # Helpful to know
     async def disconnected_cb():
         print("Got disconnected...")
 
+    # Helpful to know
     async def reconnected_cb():
         print("Got reconnected...")
 
@@ -30,28 +32,34 @@ async def main(cli_args):
                             max_reconnect_attempts=-1)
     print(f"Worker {worker_id} is connected to NATs")
 
-    # This is the long-running handler for generating an image with mflux
+    # (callback) When image generation parameters are received from the server, this receives them and generates the image
     async def generate_and_send_image(msg : Msg):
 
         # The worker is occupied with generating an image and will not accept other work
         nonlocal I_AM_BUSY
         if I_AM_BUSY:
             # This shouldn't happen because of the way the worker is written
-            print("Worker received image generation request while worker was already busy")
+            print("Worker refused new image generation request while worker was already busy")
             await nc.publish(msg.reply, b'The worker was already busy.', headers = dict(success = 'false'))
             await nc.flush()
         I_AM_BUSY = True
 
-        print("Generating image.")
+
+
+        # This is where we will send the completed image to
+        image_inbox = msg.reply
 
         # Deserialize image gen request
-        request = json.loads(msg.data.decode())
+        request = json.loads(msg.data.decode())        
+
+        # Every time there's a 'tic' in the mflux progress loop, broadcast progress to whoever is listening
+        async def progress_cb(progress):
+            await nc.publish(f"{image_inbox}.worker-progress", str(progress).encode())
+            await nc.flush()
         
         try:
             # Use mflux to generate an image conforming to the request            
-            image : Image = generate_image(request)
-
-            print("Image generation complete.")
+            image : Image = await generate_image(request, progress_cb)
             
             # Turn it into bytes
             img_io = BytesIO()
@@ -59,39 +67,42 @@ async def main(cli_args):
             img_io.seek(0)
 
             # Send the image back to the `reply` (which is an inbox that the consumer and server are sub'd to)
-            headers = dict(mimetype='image/png', success='true')
-            await nc.publish(msg.reply, img_io.read(), headers=headers)
+            await nc.publish(image_inbox, img_io.read(), headers=dict(mimetype='image/png', success='true'))
             await nc.flush()
+            print("Image generation complete.")
+        
         except Exception as e:
-            # In case of failure, report failure (server also gets this response and can retry if desired)
             print(str(e))
-            print("Image generation failed.")
-            await nc.publish(msg.reply, b'There was a problem generating the image.', headers = dict(success = 'false'))
+            # In case of failure, report failure (server also gets this response and can retry if desired)
+            await nc.publish(image_inbox, b'There was a problem generating the image.', headers = dict(success = 'false'))
             await nc.flush()
+            print("Image generation failed.")
         finally:
-            # The worker is no longer busy
+            # After this block of code, the worker is no longer busy, regardless of success or failure
             I_AM_BUSY = False
 
     # Respond to a request from the server for a worker, indicating whether you are willing to work
+    # NOTE: This subscription is a "queue group" 
+    # This puts the worker in a pool so only one randomly selected worker from the pool will respond to the request-worker subject
     requestSub = await nc.subscribe('request-worker', 'workers')
-    print(f"Subscribed to '{requestSub.subject}'")
+    print(f"Listening for requests for work...")
 
-    # Respond to an image generation request
+    # This is the channel that work requests specific to this worker are received on
     imgGenPayloadSub = await nc.subscribe(worker_id)    
-    print(f"Subscribed to '{imgGenPayloadSub.subject}'")
     await nc.flush()
     
-    # INSERT_YOUR_CODE
+    # Async loop to handle the server asking this worker to volunteer to work.
     async def handle_requests():
         async for msg in requestSub.messages:
             willing = str(not I_AM_BUSY).lower()
-            print(f"Work request received - willing={willing}")
+            print("Accepted work request from server" if willing == 'true' else "Refused work request from server")
             await nc.publish(msg.reply, reply=worker_id, headers=dict(willing=willing))
             await nc.flush()
 
+    # Async loop to receive the specific parameters of the work request.
     async def handle_image_generation():
         async for msg in imgGenPayloadSub.messages:
-            print(f"Image generation request received.")
+            print(f"Image generation parameters received.")
             await generate_and_send_image(msg)
 
     # Run both loops concurrently
@@ -113,7 +124,7 @@ async def main(cli_args):
         pass
 
 
-def generate_image(request : Dict[str,any]) -> Image:
+async def generate_image(request : Dict[str,any], progress_cb) -> Image:
 
     flux = Flux1(
         model_config=ModelConfig.from_alias('schnell'),
@@ -122,14 +133,15 @@ def generate_image(request : Dict[str,any]) -> Image:
 
     try:
         # Generate an image
-        image = flux.generate_image(
+        image = await flux.generate_image(
             seed=request["seed"],
             prompt=request["prompt"],
             config=Config(
                 num_inference_steps=request["numSteps"],
                 height=request["height"],
                 width=request["width"]
-            )
+            ),
+            progress_cb = progress_cb
         )
 
         # Save the image
