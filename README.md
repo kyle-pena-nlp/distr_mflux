@@ -1,6 +1,6 @@
 ## Introduction
 
-This repository implements 
+This repository is a prototype of a distributed platform for image generation using the NATs message protocol. 
 
 ## Overview
 
@@ -12,13 +12,18 @@ There are three components to this project:
 Based on our conversation, you are probably going to be most interested in:
 `server/imgGenRequestHandler.ts`
 
-## Design
+##  Python Setup
 
-<include design pic here>
+The requester and worker are python scripts (the server is a bun process).
+You'll want to do these setup steps **first**.
 
-## Some Thoughts (What I Would Do Differently The 2nd Time)
-1. If I really wanted this thing to scale, I should have included a write-behind cache (like Redis) between the bun process and postgres
-2. I should have spent some more time looking into JetStream - might have simplified the implementation a bit
+Use Python 3.12 (it may work in other Python versions, but no guarantees).
+1. `cd` to the root of the repo (which contains `client`, `db` as subfolders)
+2. In the root directory of the repo, create a virtual environment: `python -m venv .venv`
+3. Activate the virtual environment: `source .venv/bin/activate`
+4. Install the project requirements: `pip install .`
+5. Download the HuggingFace models for mflux: `python worker/download_hf_model.py`
+It takes about ~30 mins to download the model and takes about 50GB of disk space.
 
 ## Starting The Server
 
@@ -28,18 +33,13 @@ To build and start the server:
 * Be in the root directory of the repo
 * Run `docker compose up`
 
-##  Requester/Worker Setup
 
-Using Python 3.11+ (may work in earlier versions, haven't tested them):
-1. In the root directory of the repo, create a virtual environment: `python -m venv .venv`
-2. Activate the virtual environment: `source .venv/bin/activate`
-3. Install the project requirements: `pip install .`
-4. Download the HuggingFace models for mflux: `python worker/download_hf_model.py`
 
 ## Starting Workers and Requester
 1. In all terminal windows, always have the virtual environment activated: `source .venv/bin/activate`
 2. Start a requester: `python requester/requester.py`
-3. Start one or more workers in separate terminal windows: `python worker/worker.py`
+3. In a new terminal window, start a worker: `python worker/worker.py`
+4. Repeat (3)
 Create multiple workers to create a pool of workers that get randomly assigned work from the server.
 
 
