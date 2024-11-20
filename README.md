@@ -1,6 +1,8 @@
 ## Introduction
 
-This repository is a prototype of a distributed platform for image generation using the NATs message protocol. 
+This repository is a prototype of a distributed platform for image generation using the NATs message protocol.
+
+It uses a Bun service to orchestra the selection of a worker from a worker queue and relies entirely on NATs (no HTTP requests involved).
 
 ## Overview
 
@@ -18,16 +20,27 @@ You'll want to do these setup steps **first**.
 
 Use Python 3.12 (it may work in other Python versions, but no guarantees).
 1. `cd` to the root of the repo (which contains `client`, `db` as subfolders)
-2. In the root directory of the repo, create a virtual environment: `python3 -m venv .venv`
-3. Activate the virtual environment: `source .venv/bin/activate`
-4. Install the project requirements: `pip3 install .`
-5. Download the HuggingFace models for mflux: `python3 worker/download_hf_model.py` (this may require a restart or two if the network is flaky- but it seems to pick up where it left off)
-It takes about ~30 mins to download the model and takes about 50GB of disk space.
+2. In the root directory of the repo, create a virtual environment: 
+   
+   `python3 -m venv .venv`
+3. Activate the virtual environment: 
+   
+   `source .venv/bin/activate`
+4. Install the project requirements: 
+   
+   `pip3 install .`
+5. Download the HuggingFace models for mflux: 
+   
+   `python3 worker/download_hf_model.py` 
+   
+   (HF's included downloader is a little flaky so it may require a restart or two)
+
+    It takes about ~30 mins to download the model and takes about 50GB of disk space.
 
 ## Starting The Server
 
 As a prerequisite, you'll need to have Docker installed and the Docker daemon running.
-To build and start the server:
+To build and start the server stack:
 * Open a new terminal
 * Be in the root directory of the repo
 * Run `docker compose up`
@@ -35,16 +48,19 @@ To build and start the server:
 
 
 ## Starting Workers and Requester
-1. In all terminal windows, always have the virtual environment activated: `source .venv/bin/activate`
-2. In a new terminal window, activate the virtual environment activated, start a worker: `python3 worker/worker.py`
-3. In a new terminal window, activate the virtual environment activated, start a requester: `python3 requester/requester.py`
-4. Repeat (3) a few times to create a pool of workers
+1. In a new terminal window, activate the virtual environment, and then start a worker: 
+   
+   `python3 worker/worker.py`
+2. In a new terminal window, activate the virtual environment, and then start a requester: 
+   
+   `python3 requester/requester.py`
+3. Repeat (3) a few times to create a pool of workers
 
 You can give a worker a specific ID by using the CLI argument `--worker_id`.  For example:
 
 `python3 worker/worker.py --worker_id blacklisted-worker`
 
-I init'd the Postgres DB to contain a single blacklisted worker named `blacklisted-worker`, so the Bun service will refuse to scheduled work for a worker named this way.
+As an FYI, I init'd the Postgres DB to contain a single blacklisted worker named `blacklisted-worker`, so the Bun service will refuse to schedule work for a worker created this way.
 
 ## How It Works
 

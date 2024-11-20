@@ -22,7 +22,7 @@ const app = new Hono();
 // Status of client
 app.get('/dashboard', async (c) => {
   // applesauce
-  return c.text("Fooey")
+  return c.text("TODO")
 });
 
 console.log(`Starting Hono server on port ${env.PORT} (visit http://localhost:${env.PORT}/dashboard)`);
