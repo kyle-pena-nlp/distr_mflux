@@ -19,10 +19,10 @@ You'll want to do these setup steps **first**.
 
 Use Python 3.12 (it may work in other Python versions, but no guarantees).
 1. `cd` to the root of the repo (which contains `client`, `db` as subfolders)
-2. In the root directory of the repo, create a virtual environment: `python -m venv .venv`
+2. In the root directory of the repo, create a virtual environment: `python3 -m venv .venv`
 3. Activate the virtual environment: `source .venv/bin/activate`
-4. Install the project requirements: `pip install .`
-5. Download the HuggingFace models for mflux: `python worker/download_hf_model.py`
+4. Install the project requirements: `pip3 install .`
+5. Download the HuggingFace models for mflux: `python3 worker/download_hf_model.py` (this may require a restart or two if the network is flaky- but it seems to pick up where it left off)
 It takes about ~30 mins to download the model and takes about 50GB of disk space.
 
 ## Starting The Server
@@ -37,10 +37,9 @@ To build and start the server:
 
 ## Starting Workers and Requester
 1. In all terminal windows, always have the virtual environment activated: `source .venv/bin/activate`
-2. Start a requester: `python requester/requester.py`
-3. In a new terminal window, start a worker: `python worker/worker.py`
-4. Repeat (3)
-Create multiple workers to create a pool of workers that get randomly assigned work from the server.
+2. In a new terminal window, activate the virtual environment activated, start a worker: `python3 worker/worker.py`
+3. In a new terminal window, activate the virtual environment activated, start a requester: `python3 requester/requester.py`
+4. Repeat (3) to create a pool of workers
 
 
 
