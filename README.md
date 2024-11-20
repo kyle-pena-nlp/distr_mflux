@@ -2,13 +2,13 @@
 
 This repository is a prototype of a distributed platform for image generation using the NATs message protocol.
 
-It uses a Bun service to orchestra the selection of a worker from a worker queue and relies entirely on NATs (no HTTP requests involved).
+It uses a Bun service to orchestrate the selection of a worker from a pool of workers, and relies entirely on NATs (no HTTP requests involved).
 
 ## Overview
 
 There are three components to this project:
 1. **server** - a docker-compose stack which has a NATs server, a bun process, and a postgres DB.
-2. **worker** - a copy of `mflux` wrapped with a NATs client. Multiple instances can be spun up to simulate a pool of workers.
+2. **mflux worker** - a copy of `mflux` wrapped with a NATs client. Multiple instances can be spun up to simulate a pool of workers.
 3. **requester** - a simple python script which asks for image prompts from the user (you)
 
 Based on our conversation, you are probably going to be most interested in:
@@ -16,7 +16,7 @@ Based on our conversation, you are probably going to be most interested in:
 
 ##  Python Setup
 
-You'll want to do these setup steps **first**.
+You'll want to do these Python setup steps **first**.
 
 Use Python 3.12 (it may work in other Python versions, but no guarantees).
 1. `cd` to the root of the repo (which contains `client`, `db` as subfolders)
@@ -54,19 +54,19 @@ To build and start the server stack:
 2. In a new terminal window, activate the virtual environment, and then start a requester: 
    
    `python3 requester/requester.py`
-3. Repeat (3) a few times to create a pool of workers
+3. Repeat (1) a few times to create a pool of workers
 
 You can give a worker a specific ID by using the CLI argument `--worker_id`.  For example:
 
 `python3 worker/worker.py --worker_id blacklisted-worker`
 
-As an FYI, I init'd the Postgres DB to contain a single blacklisted worker named `blacklisted-worker`, so the Bun service will refuse to schedule work for a worker created this way.
+As an FYI, I init'd the Postgres DB to contain a single blacklisted worker named `blacklisted-worker`, so the Bun service will refuse to schedule work for a worker created with that `--worker_id`.
 
 ## How It Works
 
-When the user enters a prompt, height, and width, the requester serializes the request into a bytes and pubs to `img-gen`.  The requester also generates a 1-shot inbox (`imageInbox`) that will eventually receive the generated image.  This `imageInbox` is included in the header of the `img-gen` pub.
+When the user enters a prompt, height, and width, the requester serializes these parameters into bytes and pubs it to `img-gen`.  The requester also generates a 1-shot inbox (`imageInbox`) that will eventually receive the generated image from the mflux worker.  The `imageInbox` is included in the header of the `img-gen` pub.
 
-The Bun server listens to `img-gen`, receives the payload and header, and fires off a handler.
+The Bun service is subscribed to `img-gen` and fires off an asynchronous handler in response.
 
 ![alt text](doc/image-1.png)
 
@@ -97,4 +97,13 @@ I'm glossing over a lot of details.  Here are a few:
 ## TODO
 
 1. Implement an image verification scheme and integrate it with the blacklisted workers list
-2. Build a JSX-based dashboard for the Bun service
+2. Build a JSX-based dashboard for realtime monitoring of the Bun service
+
+## Final Thoughts
+
+If I were building this system less as a weekend project and more for real, I would make different choices:
+1. I would make actual UIs for the requester and worker, not just Python scripts.
+2. I would *not* use mflux because it only executes on MacOS.  I would find some way to port *flux* itself into a background execution process.
+3. I would probably put some kind of write-behind cache between the Bun service and the DB if perf monitoring indicated that the (chatty) DB writes were a bottleneck - I think they might be.
+4. I would use NAT's JetStream features because of the delivery guarantees it has.
+5. WorkerID would be based off of a device identifier.
