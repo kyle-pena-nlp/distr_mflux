@@ -76,7 +76,7 @@ The requester also generates a 1-shot inbox (`imageInbox`) that will eventually 
 
 The Bun service is subscribed to `img-gen` subject and fires off an asynchronous handler in response.
 
-The handler reads the `imageInbox` from the header, and the image request payload (prompt, width, height).  These will be used in a bit.  But first, we have to find an available worker form the pool to send the image generation request to.
+The handler reads the `imageInbox` from the header, and the image request payload (prompt, width, height).  These will be used in a bit.  But first, we have to find an available worker from the pool of workers.
 
 The handler requests an available worker from the workers pool by pushing a pub to `request-worker`.  Because each worker in the worker pool is sub'd to `request-worker` as a part of a [queue group](https://docs.nats.io/nats-concepts/core-nats/queue), just one worker out of the pool responds to `request-worker`.  This is how the workload is balanced.
 
