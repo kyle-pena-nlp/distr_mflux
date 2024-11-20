@@ -25,3 +25,4 @@ notes.txt
 .python-version
 
 generated/*
+!doc/*.png
